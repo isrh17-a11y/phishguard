@@ -1,0 +1,8 @@
+{
+  "selected": "XGBoost",
+  "criterion": "validation F1",
+  "seed": 42,
+  "n_train": 164759,
+  "n_val": 35305,
+  "n_test": 35306
+}

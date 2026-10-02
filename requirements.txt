@@ -1,0 +1,14 @@
+pandas
+numpy
+scikit-learn
+xgboost
+shap
+matplotlib
+joblib
+tldextract
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+dnspython
+python-whois

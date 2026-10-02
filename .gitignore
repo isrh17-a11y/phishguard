@@ -1,0 +1,9 @@
+.venv/
+.DS_Store
+__pycache__/
+data/*.csv
+data/*.zip
+node_modules/
+.next/
+.env
+.env.local
