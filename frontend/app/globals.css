@@ -20,7 +20,37 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(1200px 600px at 50% -100px, rgba(16, 185, 129, 0.14), transparent 60%),
+    #060b08;
+  color: #e2e8f0;
 }
+
+/* faint technical grid, fades out downward */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* W3Verse-style gradient headline */
+.text-hero-gradient {
+  background: linear-gradient(180deg, #ffffff 25%, #8fa3b8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes radar-sweep {
+  to { transform: rotate(360deg); }
+}
+.radar-sweep { animation: radar-sweep 4.5s linear infinite; }
+
+@keyframes scan-line {
+  0%   { top: 0;    opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+.scan-line { animation: scan-line 1.6s ease-in-out infinite; }
