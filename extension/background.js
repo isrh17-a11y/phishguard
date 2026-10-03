@@ -1,5 +1,5 @@
-const API_BASE = "http://localhost:8000";   // ← swap to Railway URL after deploy
-const WEB_APP  = "http://localhost:3000";   // ← swap to Vercel URL after deploy
+const API_BASE = "https://phishguard-production-7b6e.up.railway.app";
+const WEB_APP  = "https://phishguard-ten-ruddy.vercel.app";  
 
 const BLOCK_LEVELS = ["HIGH RISK", "CRITICAL"];
 const CACHE_TTL_MS = 10 * 60 * 1000;
