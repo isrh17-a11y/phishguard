@@ -7,6 +7,7 @@ const CACHE_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_ALLOWLIST = [
   "google.com", "youtube.com", "wikipedia.org", "github.com", "amazon.com",
   "apple.com", "microsoft.com", "stackoverflow.com", "linkedin.com", "localhost",
+  "phishguard-ten-ruddy.vercel.app", "phishguard-production-7b6e.up.railway.app"
 ];
 
 // ---------- helpers ----------
@@ -122,6 +123,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     chrome.storage.local.get("userAllowlist").then(({ userAllowlist = [] }) => {
       const merged = [...new Set([...userAllowlist, msg.host])];
       return chrome.storage.local.set({ userAllowlist: merged });
+    }).then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (msg.type === "bypass") {
+    chrome.storage.session.get("bypass").then(({ bypass = {} }) => {
+      bypass[msg.host] = true;
+      return chrome.storage.session.set({ bypass });
     }).then(() => sendResponse({ ok: true }));
     return true;
   }
