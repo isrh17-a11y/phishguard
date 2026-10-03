@@ -20,9 +20,17 @@ export default function InsightsPage() {
   const levelData = Object.entries(stats.by_threat_level)
     .map(([level, count]) => ({ level, count, fill: levelStyle(level).hex }))
     .sort((a, b) => a.level.localeCompare(b.level));
+
   const signalData = stats.top_signals.map(s => ({
     name: s.signal.replaceAll("_", " "), count: s.count,
   }));
+
+  let running = 0;
+  const timeline = stats.scans_per_day.map(d => {
+    running += d.scans;
+    return { date: d.date, scans: running };
+  });
+
   const phishing = stats.by_classification.PHISHING ?? 0;
 
   return (
@@ -33,7 +41,7 @@ export default function InsightsPage() {
         {[
           ["Total scans", String(stats.total_scans), "text-white"],
           ["Phishing detected", String(phishing), "text-red-400"],
-          ["Safe scans", String((stats.by_classification.LEGITIMATE ?? 0)), "text-emerald-400"],
+          ["Safe scans", String(stats.by_classification.LEGITIMATE ?? 0), "text-emerald-400"],
           ["Avg risk score", String(stats.average_risk_score), "text-amber-400"],
         ].map(([label, value, color]) => (
           <div key={label} className="rounded-xl border border-white/10 bg-white/[0.02] p-5">
@@ -60,9 +68,9 @@ export default function InsightsPage() {
         </div>
 
         <div className="rounded-xl border border-white/10 bg-white/[0.02] p-6">
-          <h2 className="text-sm font-semibold text-slate-400">Scans over time</h2>
+          <h2 className="text-sm font-semibold text-slate-400">Cumulative scans</h2>
           <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={stats.scans_per_day}>
+            <LineChart data={timeline}>
               <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
               <XAxis dataKey="date" tick={{ fill: "#64748b", fontSize: 11 }} />
               <YAxis allowDecimals={false} tick={{ fill: "#64748b", fontSize: 11 }} width={30} />

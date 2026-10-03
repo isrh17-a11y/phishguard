@@ -15,8 +15,8 @@ const STAGES = [
 
 const CHIPS = [
   { icon: "⚡", text: "28 lexical features", className: "left-[2%] top-[280px]" },
-  { icon: "🧠", text: "XGBoost classifier", className: "right-[2%] top-[420px]" },
-  { icon: "🛡", text: "Heuristic risk engine", className: "left-[2%] top-[540px]" },
+  { icon: "🧠", text: "XGBoost classifier", className: "right-[2%] top-[280px]" },
+  { icon: "🛡", text: "Heuristic risk engine", className: "right-[2%] top-[430px]" },
 ];
 
 export default function Home() {
