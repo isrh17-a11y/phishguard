@@ -117,7 +117,10 @@ export default function ResultView({ data }: { data: ScanResult }) {
             return (
               <div key={key} className="flex justify-between border-b border-white/5 py-1.5">
                 <span className="text-slate-500">{label}</span>
-                <b className="font-mono text-slate-200">{binary ? (v === 1 ? "YES" : "NO") : v}</b>
+                <b className="font-mono text-slate-200">
+                {binary ? (v === 1 ? "YES" : "NO")
+                : typeof v === "number" && !Number.isInteger(v) ? v.toFixed(2) : v}
+                </b>
               </div>
             );
           })}
