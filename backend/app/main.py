@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -15,27 +16,58 @@ from .schemas import HistoryPage, ScanRequest, ScanResponse, SignalOut
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="PhishGuard API", version="0.1.0")
+app = FastAPI(title="PhishGuard API", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],   # add your production URL on Day 4
+    allow_origins=os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000",
+    ).split(","),
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-FALLBACK_RECOMMENDATIONS = {
-    "SAFE": "No significant risk indicators found. Normal caution still applies.",
-    "LOW RISK": "No strong red flags, but verify the sender before trusting this link.",
-    "MEDIUM RISK": "Several suspicious indicators detected. Avoid entering credentials or personal data.",
-    "HIGH RISK": "Strong phishing indicators. Do not enter any information on this site.",
-    "CRITICAL": "Multiple critical phishing indicators. Do not visit or share this URL.",
-}
+
+def _normalize_url(raw: str) -> str:
+    url = raw.strip()
+    if not url:
+        raise HTTPException(400, "URL must not be empty")
+    if len(url) > 2048:
+        raise HTTPException(400, "URL exceeds 2048 characters")
+    if "://" not in url:
+        url = "http://" + url
+    return url
 
 
 def _jsonable(d: dict) -> dict:
     """numpy scalars aren't JSON serialisable — convert them."""
     return {k: (v.item() if hasattr(v, "item") else v) for k, v in d.items()}
+
+
+def _assessment(raw_url: str) -> tuple[str, dict, float, dict]:
+    """Shared pipeline: normalize → features → model → risk engine."""
+    url = _normalize_url(raw_url)
+    features = _jsonable(extract_features(url))
+    p_phish = predict_proba(features)
+    result = compute_risk(url, p_phish)
+    return url, features, p_phish, result
+
+
+def _to_response(url: str, host: str, features: dict, p_phish: float,
+                 result: dict, scan_id: int = 0,
+                 timestamp: datetime | None = None) -> ScanResponse:
+    return ScanResponse(
+        id=scan_id, url=url, host=host,
+        timestamp=timestamp or datetime.now(timezone.utc),
+        risk_score=result["risk_score"], threat_level=result["threat_level"],
+        classification=result["classification"], confidence=result["confidence"],
+        ml_probability=p_phish, recommendation=result.get("recommendation", ""),
+        signals=[SignalOut(id=s["id"], title=s.get("title", s["id"]), severity=s["severity"],
+                           description=s.get("description", ""), points=int(s.get("points", 0)))
+                 for s in result["signals"]],
+        features=features, breakdown=result.get("risk_breakdown", {}),
+    )
 
 
 @app.get("/api/health")
@@ -54,64 +86,33 @@ def health(db: Session = Depends(get_db)):
 
 
 @app.post("/api/scan", response_model=ScanResponse)
-def scan(req: ScanRequest, db: Session = Depends(get_db)):
-    url = req.url.strip()
-    if not url:
-        raise HTTPException(400, "URL must not be empty")
-    if len(url) > 2048:
-        raise HTTPException(400, "URL exceeds 2048 characters")
-    if "://" not in url:
-        url = "http://" + url
-
+def scan(req: ScanRequest, save: bool = True, db: Session = Depends(get_db)):
+    url, features, p_phish, result = _assessment(req.url)
     host = urlparse(url).hostname or ""
-    features = _jsonable(extract_features(url))
-    p_phish = predict_proba(features)
-    result = compute_risk(url, p_phish)
+
+    if not save:
+        # Stateless mode — browser extension auto-scans; browsing must not flood History
+        return _to_response(url, host, features, p_phish, result)
 
     row = Scan(
-        url=url,
-        host=host,
-        risk_score=result["risk_score"],
-        threat_level=result["threat_level"],
-        classification=result["classification"],
-        confidence=result["confidence"],
-        ml_probability=p_phish,
-        recommendation=result.get("recommendation", ""),
-        features=features,
-        breakdown=result.get("risk_breakdown", {}),
+        url=url, host=host,
+        risk_score=result["risk_score"], threat_level=result["threat_level"],
+        classification=result["classification"], confidence=result["confidence"],
+        ml_probability=p_phish, recommendation=result.get("recommendation", ""),
+        features=features, breakdown=result.get("risk_breakdown", {}),
     )
     db.add(row)
     db.flush()
     for s in result["signals"]:
         db.add(ScanSignal(
-            scan_id=row.id,
-            signal=s["id"],
-            title=s.get("title", s["id"]),
-            severity=s["severity"],
-            description=s.get("description", ""),
+            scan_id=row.id, signal=s["id"], title=s.get("title", s["id"]),
+            severity=s["severity"], description=s.get("description", ""),
             points=int(s.get("points", 0)),
         ))
     db.commit()
     db.refresh(row)
-
-    return ScanResponse(
-        id=row.id,
-        url=row.url,
-        host=row.host,
-        timestamp=row.timestamp,
-        risk_score=row.risk_score,
-        threat_level=row.threat_level,
-        classification=row.classification,
-        confidence=row.confidence,
-        ml_probability=row.ml_probability,
-        recommendation=row.recommendation,
-        signals=[SignalOut(
-            id=s.signal, title=s.title, severity=s.severity,
-            description=s.description, points=s.points,
-        ) for s in row.signals],
-        features=row.features or {},
-        breakdown=row.breakdown or {},
-    )
+    return _to_response(url, host, features, p_phish, result,
+                        scan_id=row.id, timestamp=row.timestamp)
 
 
 @app.get("/api/history", response_model=HistoryPage)
@@ -139,22 +140,14 @@ def scan_detail(scan_id: int, db: Session = Depends(get_db)):
     if row is None:
         raise HTTPException(404, "Scan not found")
     return ScanResponse(
-        id=row.id,
-        url=row.url,
-        host=row.host,
-        timestamp=row.timestamp,
-        risk_score=row.risk_score,
-        threat_level=row.threat_level,
-        classification=row.classification,
-        confidence=row.confidence,
-        ml_probability=row.ml_probability,
-        recommendation=row.recommendation or FALLBACK_RECOMMENDATIONS.get(row.threat_level, ""),
-        signals=[SignalOut(
-            id=s.signal, title=s.title, severity=s.severity,
-            description=s.description, points=s.points,
-        ) for s in row.signals],
-        features=row.features or {},
-        breakdown=row.breakdown or {},
+        id=row.id, url=row.url, host=row.host, timestamp=row.timestamp,
+        risk_score=row.risk_score, threat_level=row.threat_level,
+        classification=row.classification, confidence=row.confidence,
+        ml_probability=row.ml_probability, recommendation=row.recommendation or "",
+        signals=[SignalOut(id=s.signal, title=s.title, severity=s.severity,
+                           description=s.description, points=s.points)
+                 for s in row.signals],
+        features=row.features or {}, breakdown=row.breakdown or {},
     )
 
 
@@ -167,6 +160,7 @@ def stats(db: Session = Depends(get_db)):
     top_signals = [
         {"signal": s, "count": c}
         for s, c in db.query(ScanSignal.signal, func.count())
+        .filter(ScanSignal.signal != "no_red_flags")
         .group_by(ScanSignal.signal)
         .order_by(func.count().desc())
         .limit(8)

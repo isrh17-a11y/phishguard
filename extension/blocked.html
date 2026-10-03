@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Blocked by PhishGuard</title>
+  <style>
+    body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+           background:#070b12; color:#e2e8f0; font-family:system-ui,sans-serif; }
+    .card { max-width:560px; padding:40px; border:1px solid rgba(239,68,68,.35);
+            border-radius:20px; background:rgba(239,68,68,.05); text-align:center; }
+    h1 { margin:8px 0; font-size:26px; color:#f87171; }
+    .score { font-size:56px; font-weight:800; color:#ef4444; margin:8px 0 0; }
+    .level { display:inline-block; padding:4px 12px; border-radius:6px; font-size:13px; font-weight:600;
+             background:rgba(239,68,68,.15); color:#f87171; border:1px solid rgba(239,68,68,.4); }
+    .url { margin:20px 0; padding:10px; border-radius:8px; background:rgba(255,255,255,.04);
+           font-family:ui-monospace,monospace; font-size:13px; word-break:break-all; color:#94a3b8; }
+    ul { text-align:left; margin:16px auto; padding-left:20px; color:#cbd5e1; font-size:14px; line-height:1.7; }
+    .row { display:flex; gap:12px; justify-content:center; margin-top:24px; }
+    button { padding:12px 22px; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; border:0; }
+    #back { background:#10b981; color:#04130d; }
+    #proceed { background:transparent; color:#64748b; border:1px solid rgba(255,255,255,.12); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div style="font-size:40px">🛡️</div>
+    <h1>Dangerous site blocked</h1>
+    <span class="level" id="level"></span>
+    <div class="score" id="score"></div>
+    <div class="url" id="url"></div>
+    <ul id="signals"></ul>
+    <div class="row">
+      <button id="back">Take me back to safety</button>
+      <button id="proceed">Proceed anyway</button>
+    </div>
+  </div>
+  <script src="blocked.js"></script>
+</body>
+</html>

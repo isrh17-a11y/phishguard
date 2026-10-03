@@ -1,0 +1,10 @@
+.venv
+venv
+__pycache__
+**/__pycache__
+data
+frontend
+docs
+extension
+.git
+*.csv
