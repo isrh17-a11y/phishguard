@@ -12,6 +12,7 @@ from .features import extract_features
 from .ml import model_name, predict_proba
 from .models import Scan, ScanSignal
 from .risk import compute_risk
+from .shap import explain as shap_explain
 from .schemas import HistoryPage, ScanRequest, ScanResponse, SignalOut
 
 Base.metadata.create_all(bind=engine)
@@ -46,11 +47,12 @@ def _jsonable(d: dict) -> dict:
 
 
 def _assessment(raw_url: str) -> tuple[str, dict, float, dict]:
-    """Shared pipeline: normalize → features → model → risk engine."""
+    """Shared pipeline: normalize → features → model → risk engine → SHAP."""
     url = _normalize_url(raw_url)
     features = _jsonable(extract_features(url))
     p_phish = predict_proba(features)
     result = compute_risk(url, p_phish)
+    result.setdefault("risk_breakdown", {})["top_features"] = shap_explain(features)
     return url, features, p_phish, result
 
 

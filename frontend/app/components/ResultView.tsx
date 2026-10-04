@@ -2,6 +2,12 @@
 
 import { ScanResult, levelStyle } from "../lib/api";
 
+interface FeatureContribution {
+  feature: string;
+  value: number;
+  contribution: number;
+}
+
 function Gauge({ score, level }: { score: number; level: string }) {
   const { hex } = levelStyle(level);
   const r = 84;
@@ -37,13 +43,24 @@ const FEATURE_LABELS: [string, string][] = [
   ["num_dots", "Dots"], ["num_hyphens", "Hyphens"], ["num_digits", "Digits"],
   ["num_special_chars", "Special chars"], ["num_suspicious_keywords", "Suspicious keywords"],
   ["is_https", "HTTPS"], ["has_ip_host", "IP host"], ["suspicious_tld", "Suspicious TLD"],
-  ["hostname_entropy", "Hostname entropy"],
+  ["hostname_entropy", "Hostname entropy"], ["url_entropy", "URL entropy"],
+  ["num_hyphens_in_host", "Hyphens in host"], ["digit_ratio", "Digit ratio"],
+  ["longest_digit_run", "Longest digit run"], ["has_at_symbol", "@ symbol"],
+  ["is_shortener", "Shortener"], ["has_punycode", "Punycode"],
 ];
+
+function formatValue(v: number): string {
+  return Number.isInteger(v) ? String(v) : v.toFixed(2);
+}
 
 export default function ResultView({ data }: { data: ScanResult }) {
   const { hex, chip } = levelStyle(data.threat_level);
   const phishPct = Math.round(data.ml_probability * 100);
   const legitPct = 100 - phishPct;
+  const topFeatures = data.breakdown?.top_features as FeatureContribution[] | undefined;
+  const maxAbs = topFeatures?.length
+    ? Math.max(...topFeatures.map(f => Math.abs(f.contribution)))
+    : 1;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -106,6 +123,42 @@ export default function ResultView({ data }: { data: ScanResult }) {
         </div>
       </div>
 
+      {/* SHAP per-scan attribution */}
+      {topFeatures && topFeatures.length > 0 && (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8">
+          <h2 className="text-sm font-semibold tracking-widest text-slate-500">FEATURE ATTRIBUTION — THIS SCAN (SHAP)</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Instance-level explanation: the features that most influenced this specific verdict.
+            <span className="text-red-400"> Red pushes toward phishing</span>,
+            <span className="text-emerald-400"> green toward legitimate</span>.
+          </p>
+          <div className="mt-5 space-y-3">
+            {topFeatures.map(f => {
+              const label = FEATURE_LABELS.find(([k]) => k === f.feature)?.[1]
+                ?? f.feature.replaceAll("_", " ");
+              const widthPct = (Math.abs(f.contribution) / maxAbs) * 100;
+              const towardPhishing = f.contribution >= 0;
+              return (
+                <div key={f.feature} className="flex items-center gap-3 text-sm">
+                  <span className="w-36 shrink-0 truncate text-slate-400" title={f.feature}>{label}</span>
+                  <span className="w-10 shrink-0 text-right font-mono text-xs text-slate-500">{formatValue(f.value)}</span>
+                  <div className="relative h-5 min-w-0 flex-1 rounded bg-white/5">
+                    <div className="absolute inset-y-0 left-1/2 w-px bg-white/20" />
+                    <div
+                      className={`absolute inset-y-0.5 rounded ${towardPhishing ? "left-1/2 bg-red-500/80" : "right-1/2 bg-emerald-500/80"}`}
+                      style={{ width: `${widthPct / 2}%`, transition: "width 700ms ease" }}
+                    />
+                  </div>
+                  <span className={`w-28 shrink-0 font-mono text-xs ${towardPhishing ? "text-red-400" : "text-emerald-400"}`}>
+                    {towardPhishing ? "+" : ""}{f.contribution.toFixed(2)} → {towardPhishing ? "phishing" : "legitimate"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* URL intelligence */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8">
         <h2 className="text-sm font-semibold tracking-widest text-slate-500">URL INTELLIGENCE</h2>
@@ -117,10 +170,7 @@ export default function ResultView({ data }: { data: ScanResult }) {
             return (
               <div key={key} className="flex justify-between border-b border-white/5 py-1.5">
                 <span className="text-slate-500">{label}</span>
-                <b className="font-mono text-slate-200">
-                {binary ? (v === 1 ? "YES" : "NO")
-                : typeof v === "number" && !Number.isInteger(v) ? v.toFixed(2) : v}
-                </b>
+                <b className="font-mono text-slate-200">{binary ? (v === 1 ? "YES" : "NO") : formatValue(v)}</b>
               </div>
             );
           })}
